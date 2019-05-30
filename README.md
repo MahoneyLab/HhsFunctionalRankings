@@ -10,11 +10,13 @@ The workflow is in an R markdown file (Hhs.Rmd)
 To replicate the analysis in the manuscript, run the code in Hhs.Rmd.
 This code expects the following directories within the project directory.
 
-* code: A directory containing all code subdirectories. These are available on this GitHub page.
-* data: A directory containing all data files used in the analysis. This is available at Figshare [link]
-* results: A directory containing all files produced by the analysis. The output is also available at Figshare [link]. However, downloading these results is not necessary as running this workflow will reproduce those results. 
+* *code*: A directory containing all code subdirectories. These are available on this GitHub page.
+* *data*: A directory containing all data files used in the analysis. This is available at Figshare [link]
+* *results*: A directory containing all files produced by the analysis. The output is also available at Figshare [link]. However, downloading these results is not necessary as running this workflow will reproduce those results. 
 
-## Requirements
+## Package Requirements
+This workflow was built in R/3.5.1
+
 The following is a list of packages required by this workflow. Please install these prior to running the workflow
 
 * e1071
@@ -31,3 +33,5 @@ The following is a list of packages required by this workflow. Please install th
 * emma
 * rPref
 * evd
+
+An interntet connection is also required to run this workflow, as it uses biomaRt to retrieve information about genes.
