@@ -17,6 +17,8 @@ This code expects the following directories within the project directory.
 ## Package Requirements
 This workflow was built in R/3.5.1
 
+An interntet connection is required to run this workflow, as it queries Biomart to retrieve information about genes.
+
 The following is a list of packages required by this workflow. Please install these prior to running the workflow
 
 * e1071
@@ -34,4 +36,3 @@ The following is a list of packages required by this workflow. Please install th
 * rPref
 * evd
 
-An interntet connection is also required to run this workflow, as it uses biomaRt to retrieve information about genes.
