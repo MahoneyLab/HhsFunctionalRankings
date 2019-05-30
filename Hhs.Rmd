@@ -1,0 +1,883 @@
+---
+title: "Functional prioritization of genes in a large locus"
+author: Anna L Tyler and J. Matthew Mahoney
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: 
+  html_document:
+    code_folding: hide
+    collapsed: no
+    toc: yes
+    toc_float: yes
+bibliography: Hhs.bib
+---
+
+This workflow is a companion to the to the paper "Integrating Network-based Functional 
+Enrichment with Genetic Association to Prioritize Causal Genes in Quantitative Trait 
+Loci." It contains all data and code required to reproduce the results
+and figures in the manuscript.
+
+The purpose of this project was to prioritize genes in a large locus associated with 
+spontaneous histamine hypersensitivity (*Hhs*) in mice. When mice with the *Hhs* trait
+are exposed to a histamine challenge, they mount an immune response that causes 
+inflammation and vascular leakage. The mice die of hypotensive and hypovolemic shock. 
+The *Hhs* phenotype is observed in some mouse strains, but not others indicating 
+the presence of a genetic factor or factors that put some mice at risk of developing 
+this phenotype.
+
+*Hhs* has been mapped to a large region on mouse chromosome 6 (45.92Mb to 127.87Mb). This 
+region contains hundreds of positional candidate genes. We have developed a computational 
+method that prioritizes the genes in the locus based on functional association with *Hhs*. 
+This method is based on a method described in [@Guan:2010kma] in which they used SVMs to 
+predict functional associations with mammalian phenotype (MP) ontology terms [@MPO]. 
+Functional association is determined using a guilt-by-association approach. It is known 
+that *Hhs* involves multiple biological processes, such as inflammation and vascular 
+permeability. These processes each have associated genes already known to influence them. 
+We use machine learning, specifically Support Vector Machines (SVM) to determine which 
+of the genes in the Chr6 locus are associated with each of the gene lists associated 
+with the *Hhs*-associated terms. 
+
+A positional candidate is associated with a gene list if it is classified as belonging to 
+the gene list by the SVM. We trained each SVM on a network of functional gene associations 
+in mice, the Functional Network of Tissues in Mice (FNTM) [@FNTM]. This workflow describes in 
+detail the methods by which we used SVM to rank positional candidate genes for experimental 
+follow-up.
+
+
+##Project Setup
+Load libraries used in this analysis.
+
+```{r setup_libraries}
+#load the libraries used in this project
+all.packages <- c("e1071", "RColorBrewer", "doParallel", "foreach",
+"gProfileR", "pheatmap", "igraph", "biomaRt", "knitr", "DescTools", 
+"here", "emma", "rPref", "evd")
+for(i in 1:length(all.packages)){library(all.packages[i], character.only = TRUE)}
+```
+
+Set parameters used in the analysis. Each of these is explained in more detail
+below.
+
+```{r set_parameters}
+n.SVM = 100 #The number of SVM models to trains
+cluster.threshold = 400 #The number of nodes above which a network is clustered into
+                        #modules. Below this number, no clustering is done.
+max.cluster.size = 400 #The largest module size allowed when using iterative clustering
+                        #A value of NULL performs fast greedy clustering only, with no
+                        #iterations.
+min.cluster.size = 45 #The minimum size of a module that will be used to train an SVM.
+max.fp = 0.2 #The maximum SVM false positive rate for a gene to be considered classified positive
+n.cores = detectCores()-1 #The number of cores to use for parallel processing
+emma.perm = 1000
+```
+
+```{r setup_dir}
+project.dir <- here()
+code.dir <- here("code")
+data.dir <- here("data")
+results.dir <- here("results")
+```
+
+Source all the code used in the project
+
+```{r source_code}
+all.fun.dir <- list.files(code.dir, full.names = TRUE)
+for(i in 1:length(all.fun.dir)){
+    all.fun <- list.files(all.fun.dir[i], full.names = TRUE)
+    for(j in 1:length(all.fun)){source(all.fun[j])}
+    }
+```
+
+Setup the mouse biomaRt library, and use the December 2017 archive. This library is used
+to retrieve information about gene IDs and genomic positions.
+
+```{r biomart}
+#mus <- useMart("ENSEMBL_MART_ENSEMBL", dataset = "mmusculus_gene_ensembl", 
+#host = "dec2017.archive.ensembl.org")
+mus <- useEnsembl(biomart="ensembl", dataset="mmusculus_gene_ensembl") #most recent version
+```
+
+Download the FNTM mouse network. The network used in this analysis was downloaded on
+January 15, 2018.
+
+```{r download_FNTM}
+mouse.net <- here("data", "mouse_top.RData")
+if(!file.exists(mouse.net)){
+    download.tissue.net(organism = "mouse", project.dir = data.dir)
+    }
+```
+
+Read in the data used in this study.<br >
+``fgn`` is the functional genomic network downloaded from [FNTM](https://http://fntm.princeton.edu)
+[@FNTM]. We used the full mouse network for this project, because the tissues relevant
+to the Hhs phenotype are unknown.
+
+```{r read_fgn, eval = TRUE}
+fgn <- readRDS(here("data", "mouse_top.RData"))
+```
+
+##Identify positional candidate genes
+There were four contiguous chromosomal regions on Chr 6 that were identified through
+congenic mapping in the lab of Cory Teuscher. For more details, see [cite]. We read 
+these in as genomic coordinates.
+
+```{r get_regions}
+genetic.regions <- read.table(paste0(data.dir,"/Chr6_regions.txt"), 
+sep = "\t", row.names = 1, stringsAsFactors = FALSE)
+```
+
+We then used BiomaRt to get the positional candidate genes in these four regions. 
+We originally accessed the database on January 31, 2018.
+
+```{r get_positional_candidates}
+#After generating the gene list once, we save it and read it in.
+locus.info.file <- here("results", "Locus.Gene.Information.csv")
+
+chr <- 6
+region.min <- min(genetic.regions)
+region.max <- max(genetic.regions)
+chr.region <- paste(chr, region.min, region.max, sep = ":")
+
+if(!file.exists(locus.info.file)){
+    #get position information for all genes in the region
+    gene.info <- getBM(c("external_gene_name", "entrezgene", "start_position", "end_position"), 
+    "chromosomal_region", values = chr.region, mart = mus)
+    #filter the table to include only those genes with entrez IDs.
+    gene.info <- gene.info[which(!is.na(gene.info[,"entrezgene"])),]
+    write.table(gene.info, here("results", "Locus.Gene.Information.csv"), 
+    sep = ",", quote = FALSE, row.names = FALSE)
+}else{
+gene.info <- read.csv(locus.info.file, stringsAsFactors = FALSE)
+}
+```
+
+
+##Define gene lists for Hhs related terms
+We used the following terms to create gene lists for Hhs-related processes:<br />
+anaphylaxis<br />
+cardiac<br />
+G-protein coupled receptor<br />
+histamine<br />
+inflammation<br />
+type I hypersensitivity<br />
+vascular permeability<br />
+Mycobacterium tuberculosis<br />
+Pertussis toxin<br />
+non-G protein signaling<br />
+
+For each of these terms, we performed the following procedure:<br />
+1. Go to [Gene Weaver](https://geneweaver.org) [@geneweaver].<br />
+2. Enter search term.<br />
+3. Restrict search to human, mouse, and rat, and to curated lists only.<br />
+4. Download gene list and remove duplicate genes.<br />
+
+We accessed the Gene Weaver database on May 2, 2018. After downloading the
+gene lists, we used BiomaRt to convert the gene names to entrezgene IDs.
+
+```{r convert_IDs}
+gene.files <- list.files(here("data", "gene_lists"), pattern = "gene_list.txt", full.names = TRUE)
+for(g in 1:length(gene.files)){
+	gene.names <- read.table(gene.files[g], stringsAsFactors = FALSE)
+    gene.id.file <- gsub(".txt", "_entrez.csv", gene.files[g])
+    if(!file.exists(gene.id.file)){
+        gene.ids <- getBM(c("external_gene_name", "entrezgene", "chromosome_name", 
+        "start_position", "end_position"), "external_gene_name", gene.names, mus)
+        write.table(gene.ids, gene.id.file, quote = FALSE, 
+        col.names = TRUE, row.names = FALSE, sep = ",")
+	}
+}
+```
+
+The figures below compare the gene lists based on the number of genes in each. The proportion
+of each that are unique or shared across pairs of lists (barplot), as well as by jaccard index
+(heatmap).
+
+
+```{r gene_set_comp, fig.height = 12, fig.width = 12}
+entrez.files <- list.files(pattern = "gene_list_entrez.csv", path = here("data", "gene_lists"), 
+full.names = TRUE)
+gene.list <- vector(mode = "list", length = length(entrez.files))
+list.names <- gsub("_gene_list_entrez.csv", "", basename(entrez.files))
+names(gene.list) <- list.names
+for(g in 1:length(entrez.files)){
+    list.genes <- read.csv(entrez.files[g], stringsAsFactors = FALSE)
+    gene.list[[g]] <- list.genes[,1]
+}
+compare.gene.sets(gene.list)
+```
+
+The figure below shows the number of genes from each list that are also positional candidates
+in the Chr 6 locus.
+
+This does not really bode well for being able to prioritize the genes functionally. There 
+are already many true positive genes in the locus. 
+
+```{r chr6_overlap, width = 10, height = 6}
+entrez.files <- list.files(pattern = "gene_list_entrez.csv", path = here("data", "gene_lists"), 
+full.names = TRUE)
+overlap.list <- vector(mode = "list", length = length(entrez.files))
+list.names <- gsub("_gene_list_entrez.csv", "", basename(entrez.files))
+names(overlap.list) <- list.names
+for(g in 1:length(entrez.files)){
+    list.genes <- read.csv(entrez.files[g], stringsAsFactors = FALSE)
+    list.overlap <- intersect(list.genes[,1], gene.info[,1])
+    overlap.locale <- match(list.overlap, gene.info[,1])
+    overlap.list[[g]] <- gene.info[overlap.locale,]
+    }
+num.overlap <- sapply(overlap.list, nrow)
+par(mar = c(12, 4, 4, 4))
+a <- barplot(num.overlap, las = 2)
+par(xpd = TRUE)
+text(x = a, y = (num.overlap+max(num.overlap*0.02)), labels = num.overlap)
+par(xpd = FALSE)
+```
+
+The histogram below shows the number of lists each of these genes appears in. 
+We call these genes TP candidates.
+
+```{r overlap_genome, fig.width = 5, fig.height = 5}
+just.genes <- lapply(overlap.list, function(x) x[,1])
+u_genes <- unique(unlist(just.genes))
+num.lists <- sapply(lapply(u_genes, function(x) grep(x, just.genes)), length)
+hist(num.lists, main = "Histgram of the number of gene lists each\npositional candidate appears in")
+```
+
+The matrix below shows the inclusion of each gene in each gene list.
+The matrix is ordered by the number of lists each gene is in. 
+
+```{r max_overlap, fig.width = 5, fig.height = 16}
+inclusion.mat <- matrix(0, nrow = length(u_genes), ncol = length(overlap.list))
+rownames(inclusion.mat) <- u_genes
+colnames(inclusion.mat) <- names(overlap.list)
+for(i in 1:length(u_genes)){
+    gene.idx <- grep(u_genes[i], overlap.list)
+    inclusion.mat[i,gene.idx] <- 1
+}
+num.lists <- rowSums(inclusion.mat)
+ordered.mat <- inclusion.mat[order(num.lists, decreasing = TRUE),]
+pheatmap(ordered.mat, cluster_rows = FALSE, cluster_cols = FALSE)
+```
+
+The figure below shows the TP candidates plotted at their genomic location. 
+The y value is based on the number of lists that they are associated with, but is
+jittered so that more gene names are readable.
+
+```{r tp_genomic}
+num.mat <- as.matrix(num.lists)
+tp.gene.table <- unique(Reduce("rbind", overlap.list))
+tp.locale <- match(tp.gene.table[,1], rownames(num.mat))
+#head(cbind(tp.gene.table, num.mat[tp.locale,]))
+plot.new()
+plot.window(xlim = c(region.min, region.max), ylim = c(0, max(num.mat[,1])))
+text(x = as.numeric(tp.gene.table[,"start_position"]), 
+y = jitter(as.numeric(num.mat[tp.locale,1])), labels = tp.gene.table[,1], cex = 0.7)
+axis(1);axis(2)
+mtext(side = 1, text = "Genomic Position", line = 2.5)
+mtext(side = 2, text = "Number of Gene Lists Included in (jittered)", line = 2.5)
+```
+
+None of these true positive genes are included in the training sets. It's a little 
+disconcerting that there are so many true positives already in the region. However,
+the approach here combines functional score with SNP associations to come up with 
+a principled ranking based on both criteria. These are all functional true positives,
+but they do not necessarily contain SNPs that segregate with the trait.
+
+
+##Train SVMs to distinguish the genes in each gene list from randomly selected genes
+
+```{r read_trait_entrez}
+#Read in the entrez IDs for each of the trait terms.
+gene.files <- list.files(here("data", "gene_lists"), pattern = "gene_list_entrez.csv", 
+full.names = TRUE)
+entrez.gene.lists <- lapply(gene.files, function(x) read.csv(x, stringsAsFactors = FALSE))
+```
+
+We ran the SVM analysis separately for each of these gene lists.
+The first step in the analysis was to train SVMs to be able to distinguish genes in 
+each gene list from randomly chosen genes from outside the list. To do this, we use the
+function generate.triage.models(), which uses the ``svm`` function in the package ``e1071``
+[@e1071].
+
+For this analysis, we ran the gene list from each biological term separately. Any
+gene list that was greater than `r cluster.threshold` genes, we clustered into modules
+based on the edge weights in the functional genomic network using the fast greedy 
+[@fastgreedy] algorithm in the R/igraph package [@igraph]. We clustered any gene set with
+greater than `r "cluster.threshold" = cluster.threshold` genes. We clustered iteratively 
+until all clusters had fewer than `r "max.cluster.size" = max.cluster.size` genes. [@Guan:2010kma]
+found that SVMs trained on gene lists of about 300 genes performed the best.
+
+There were two gene sets that had very few genes. _Anaphylaxis_ had 49 genes
+and _Type I hypersensitivity_ had 69 genes. To include both gene sets we set 
+the minimum cluster size to `r "min.cluster.size" = min.cluster.size`.
+
+Finally, we remove any positional candidate genes from the trait-related genes. This is
+not strictly necessary, since these genes are true positives, but by removing them, we can
+verify that their assignment to a module is based on the overall composition of the module, 
+not their presence in it.
+
+```{r train_models, message = FALSE, warning = FALSE, error = FALSE, eval = FALSE}
+for(g in 1:length(gene.files)){
+    trait.genes <- read.csv(gene.files[g], stringsAsFactors = FALSE)[,"entrezgene"]
+    trait.genes <- trait.genes[which(!is.na(trait.genes))]
+    trait.genes <- setdiff(trait.genes, gene.info[,"entrezgene"]) #remove locus genes from the true positives
+    term.name <- strsplit(tail(strsplit(gene.files[g], "/")[[1]], 1), "_")[[1]][1]
+     generate.triage.models(path = results.dir, project.name = term.name, 
+     trait.genes = trait.genes, fgn = fgn, n.trials = n.SVM, cluster.modules = TRUE, 
+     cluster.threshold = cluster.threshold, max.cluster.size = max.cluster.size, 
+     min.cluster.size = min.cluster.size, use.SVD = FALSE, 
+     verbose = TRUE, n.cores = n.cores)
+    }
+writeModuleGenes(results.dir, mus) #write out the genes clustered into each module
+```
+
+The features used by the SVM are the edge weights between each gene and the genes in the
+gene set associated with the biological term. For each of 100 SVM models, we used the
+gene set genes as the true positives, while the true negatives were selected at random from 
+outside of the gene set. Each true negative set was selected to have the same number of
+genes as were in the true positive set.
+
+The following table shows the number of genes in each module as well as the top five enrichment
+from gProfileR [@gprofiler].
+
+```{r module_size}
+module.table <- get.module.size(results.dir, "by.module", enrichment = TRUE)
+kable(module.table)
+```
+
+For each module, we tuned the cost parameter starting with `r 10^seq(-5, 2, 1)` and 
+iteratively narrowing the range until the accuracy of the SVM plateaued at a maximum value. 
+Each model was trained with 10-fold cross validation.
+
+Following training of the SVM models, we evaluated them by generating ROC curves to test
+how well the models separate the genes in each module from genes in the rest of the genome.
+To do this, we use the function ``SVM.ROC()``. ROC curves plot the false positive rate against
+true positive rate of the SVM model across the full range of prediction values. The area under
+the ROC curve (AUC) indicates how well the model does overall. An AUC of 0.5 indicates that the
+model performs at random chance, whereas an AUC of 1 indicates the model has perfect classification.
+
+```{r roc, message = FALSE}
+module.dir <- get.module.dir(results.dir)
+n.col = 3
+n.row = ceiling(length(module.dir)/n.col)
+par(mfrow = c(n.row, n.col))
+all.fptp <- svm.ROC(results.dir, n.cores = n.cores, plot.results = FALSE)
+```
+
+The following figure shows a histogram of the AUCs across all modules. 
+
+```{r auc_hist, fig.height = 4, fig.width = 4}
+all.auc <- sapply(all.fptp, function(x) smooth.auc(Reduce("rbind", x), plot = FALSE))
+hist(all.auc, xlim = c(0, 1));abline(v = 0.5, lty = 2, col = "darkgray")
+```
+
+These modules all have excellent classification of the module genes from the rest of the genome.
+The minimum AUC was `r min(all.auc)`. 
+
+## Apply the trained models to positional candidate genes
+After training the SVM models, we use them to classify each of the positional candidate
+genes. Each gene receives a score from each SVM indicating whether the model identifies
+it at part of the gene list (a positive score) or not part of the gene list (a negative
+score).
+
+There are `r nrow(gene.info)` genes in the Chr 6 locus. We classify each of these
+genes in each of the `r n.SVM` SVMs for each of the gene lists using ``score.candidates()``.
+
+```{r score_candidates}
+score.candidates(results.dir, candidate.genes = gene.info[,"entrezgene"])
+```
+
+This function writes out all values to two csv tables (Candidate.Gene.SVM.Scores.csv,
+and Candidate.Gene.FP.Rates.csv). In addition, this function plots boxplots of the 
+distributions of the SVM scores and the false positive (FP) rates for each candidate 
+gene in two jpgs (Candidate.Gene.SVM.Scores.jpg, and Candidate.Gene.FP.Rates.jpg). 
+These plots are ordered by mean value. For example, the scores for each candidate
+gene as it relates to the _Anaphylaxis_ gene set are as follows:
+
+```{r svm_score_example}
+include_graphics(normalizePath(paste0(module.dir[1], "/Candidate.Gene.SVM.Scores.jpg")))
+```
+The genes that are on the left are classified confidently by the SVM as being related
+to the _Anaphylaxis_ gene list. The distributions of their SVM scores do not cross 0.
+The genes on the right hand side are classified confidently by the SVM as _not_ being
+related to the _Anaphylaxis_ gene list. The genes in between are less confidently classified
+across the `r n.SVM` SVM trials. 
+
+Importantly, _Hrh1_ was scored by the SVM as being a member of the _Anaphylaxis_ gene
+module despite being removed from the module for being a positional candidate. This indicates
+that the gene list captures important processes in _Anaphylaxis_ and can identify a known positive
+that is held out of the training data.
+
+Sometimes, a few of the candidate genes genes cannot be scored. This occurs when they 
+do not have any edges connecting them to the trait genes at all. This could be remedied
+by downloading the full network from FNTM, rather than the top network. We assumed that if
+a gene was unconnected to the gene list in the top network, that it was unlikely to be classified
+as being part of the gene list even if we used the full network in training and testing.
+
+##Integrate the SVM information with position information.
+We then integrated the SVM score and FP information with the information about 
+each gene in the candidate region. 
+
+```{r merge_info}
+merge.svm.gene.info(results.dir, gene.info)
+```
+
+This function uses the gene information downloaded using ``biomaRt`` to assign gene names
+and positions to each of the entrez gene IDs with an SVM score. It writes out a table
+for each module with information about each gene, its name, genomic coordinates, and 
+SVM score and FP rate for each module (Candidate.Gene.Results.csv). It also plots the
+gene names on two axes. The x axis is the genomic position, and the y axis is the SVM score
+(Candidate.Gene.SVM.Results.jpg).
+
+For example, for _Anaphylaxis_ the gene by SVM score plot looks like this:
+
+```{r gene_svm_example}
+include_graphics(paste0(module.dir[1], "/Candidate.Gene.SVM.Results.jpg"))
+```
+
+Notice in this plot that the gene _Hrh1_ has a positive SVM score indicating that the SVMs
+classified it as being related to the anaphylaxis gene set.
+
+## Summarize Results Across modules
+Now we put the results all into one place so the results from different modules can be
+compared more easily. ``get.all.fp`` collects the fale positive rates from all the modules.
+
+```{r get_fp}
+fp.mat <- get.all.fp(results.dir)
+neg.log.fp <- -log10(fp.mat)
+#replace the Inf neg.log.fp values with a maximum value
+inf.locale <- setdiff(which(!is.finite(neg.log.fp)), which(is.na(neg.log.fp)))
+best.fp <- max(neg.log.fp[which(is.finite(neg.log.fp))]) + 1
+neg.log.fp[inf.locale] <- best.fp
+```
+
+Some of the genes were not scored in individual gene lists because they did not have edges
+connecting them to the trait genes in the top edges downloaded from FNTM. Because these genes
+are unlikely to functionally interact with the trait-related genes, according to FNTM, we
+ignore them here assuming that they would receive low SVM scores.
+
+We can sort the genes by maximum -log FP rate across all modules, to see which genes
+are most associated with each module.
+
+For better discrimination of colors here, we show the _square root_ of the $-log_{10}$ of the 
+false positive rate. All cells that are green to red have a false positive rate below `r max.fp`,
+which translates to `r sqrt(-log10(max.fp))` in the $\sqrt{-log(max.fp)}$. Cells with asterisks (*)
+show where genes have an FP rate below `r max.fp`. 
+
+```{r display_fp, fig.height = 12, fig.width = 4}
+min.logfp <- sqrt(-log10(max.fp))
+max.score <- apply(neg.log.fp, 1, function(x) max(x, na.rm = TRUE))
+score.order <- order(max.score, decreasing = TRUE)
+ordered.mat <- sqrt(neg.log.fp[score.order,])
+pheatmap(ordered.mat, cluster_rows = FALSE, 
+cluster_cols  = FALSE, show_rownames = FALSE)
+write.table(ordered.mat, here("results", 
+"Candidate.FP.Rates.by.Module.csv"), sep = ",", quote = FALSE)
+```
+
+The figure below plots the maximum SVM functional scores against the number of
+terms each TP candidate was associated with a priori. 
+
+```{r tp_comparison}
+common.genes <- intersect(u_genes, rownames(ordered.mat))
+
+
+```
+
+
+We can zoom in on the top 10 genes, and show which ones are associated with each module
+at an $\mathrm{FPR} \leq max.fp$
+
+```{r display_fp_top, fig.height = 5, fig.width = 5}
+top.mat <- sqrt(neg.log.fp[score.order[1:10],])
+pheatmap(top.mat, cluster_rows = FALSE, cluster_cols  = FALSE,
+display_numbers = matrix(ifelse(top.mat > min.logfp, "*", ""), nrow(top.mat)))
+```
+
+The functional enrichment of these genes is shown below. Bars show the $-log_{10}(p)$.
+
+```{r top_ten_enrichment, fig.height = 7, fig.width = 9}
+top.enrich <- gprofiler(rownames(top.mat), "mmusculus")
+plot.enrichment.vis(top.enrich, num.terms = 20, 
+plot.label = "Functional Enrichment of Top Ten Genes", mar = c(5,22,2,2), order.by = "p.value")
+```
+
+##Integrate SNP association information
+In addition to functional information, we used SNP association data to prioritize genes.
+A causal gene in a locus should not only be functionally associated with the trait, but
+also segregate with the trait. To identify which SNPs in the Chr 6 locus segregated with
+*Hhs*, we assayed *Hhs* in 23 mouse strains. We downloaded genome-wide genotypes for each 
+of these strains from the Mouse Genome Database at The Jackson Laboratory [@MGD]. 
+
+We performed a genetic association to associate each of the SNPs in the Chr 6 locus with 
+the percentage of mice that died as a results of the histamine challenge. We used EMMA
+[@EMMA] to perform the association tests. EMMA uses hierarchical linear models to 
+adjust for variable relatedness among individuals. Relatedness among indviduals can 
+create false SNP associations with a trait. EMMA accounts for relatedness between individuals
+reducing the number of false associations due to relatedness. We calculated the kinship 
+matrix using the entire genome except for the SNPs in the Chr 6 region being tested.
+
+
+```{r pheno_data}
+shs <- read.table(here("data", "SNP_Associations", "Strain_phenotype.txt"), 
+row.names = 1, sep = "\t", header = TRUE)
+#scale Shs
+shs <- shs/max(shs)
+```
+
+For the genotype data, I converted "Dr. Anna run genotypes.xlsx" to the csv file 
+"EMMA_genotypes.csv." There was one column with no data. I removed this by hand.
+I then converted all the genotypes to numeric data. The minor allele at each position
+was designated 0 and the major allele was designated 1.
+
+```{r geno_data}
+geno <- as.matrix(read.table(here("data", "SNP_Associations", "EMMA_genotypes.csv"), 
+header = TRUE, stringsAsFactors =FALSE, sep = ","))
+no.rs <- which(geno[,"rs"] == "")
+geno[no.rs, "rs"] <- paste0("nors", 1:length(no.rs))
+rownames(geno) <- geno[,"rs"]
+just.snps <- geno[,7:ncol(geno)]
+
+#change 0 to NA
+just.snps[which(just.snps == 0)] <- NA
+
+#convert all SNPs to 0/1 where 0 is the major allele and 1 is the minor allele
+convert.geno <- function(genotypes){
+    u_alleles <- unique(genotypes[which(!is.na(genotypes))])
+    num.geno <- sapply(u_alleles, function(x) length(which(genotypes == x)))
+    num.genotypes <- rep(NA, length(genotypes))
+    ref.allele <- u_alleles[which.max(num.geno)]
+    min.allele <- u_alleles[which.min(num.geno)]
+    num.genotypes[which(genotypes == ref.allele)] <- 0
+    num.genotypes[which(genotypes == min.allele)] <- 1
+    return(num.genotypes)
+}
+
+numeric.snps <- apply(just.snps, 1, convert.geno)
+rownames(numeric.snps) <- colnames(just.snps)
+```
+
+
+```{r order_strains}
+#Put the strains in the same order in the phenotype and genotype matrices.
+#match names, convert slashes to dots and remove Xs
+conv.snp.strains <- gsub("X", "", rownames(numeric.snps))
+conv.shs.strains <- gsub("X", "", gsub("/", ".", rownames(shs)))
+#identical(sort(conv.snp.strains), sort(conv.shs.strains))
+shs.order <- match(conv.shs.strains, conv.snp.strains)
+#cbind(rownames(shs), rownames(numeric.snps)[shs.order])
+ordered.snps <- numeric.snps[shs.order,]
+#cbind(rownames(shs), rownames(ordered.snps))
+rownames(shs) <- rownames(ordered.snps)
+```
+
+To generate the kinship matrix, we used the full genomes for all strains downloaded
+from the mouse phenome database. We removed the Hhs locus on Chromosome 6 from the 
+calculation.
+
+```{r build_full_geno}
+full.geno.file <- here("data", "SNP_Associations", "full.geno.RData")
+if(!file.exists(full.geno.file)){
+    full.geno <- NULL
+    geno.files <- list.files(here("data", "SNP_Associations", "Strain_Genotypes"), 
+    full.names = TRUE)
+    for(i in 1:length(geno.files)){
+        print(i)
+        chr.geno <- read.csv(geno.files[i], stringsAsFactors = FALSE)
+        not.dup <- which(!duplicated(chr.geno[,"rs"]))
+        chr.geno <- chr.geno[not.dup,]
+        just.snps <- chr.geno[,7:(ncol(chr.geno)-1)]
+        rownames(just.snps) <- chr.geno[,"rs"] 
+        num.snps <- apply(just.snps, 1, convert.geno)
+        rownames(num.snps) <- colnames(just.snps)
+        full.geno <- cbind(full.geno, num.snps)
+    }
+    #remove the SNPs in our locus
+    chr6.locale <- match(colnames(ordered.snps), colnames(full.geno))
+    chr6.locale <- chr6.locale[which(!is.na(chr6.locale))]
+    full.geno <- full.geno[,-chr6.locale]
+
+    #order the strains in full.geno to be the same as in ordered.snps
+    full.order <- match(gsub("X", "", rownames(ordered.snps)), gsub("X", "", rownames(full.geno)))
+    #cbind(rownames(ordered.snps), rownames(full.geno)[full.order])
+    ordered.full <- full.geno[full.order,]
+    saveRDS(ordered.full, full.geno.file)
+}else{
+full.geno <- readRDS(full.geno.file)
+}
+```
+
+The following figure shows the kinship matrix for these strains. The wild-derived strains
+separate into a cluster separated from the standard laboratory strains.
+The susceptible strains are marked in green.
+
+```{r kin, fig.height = 7, fig.width = 9}
+kin.file <- here("results", "SNP_Associations", "Kinship.RData")
+if(!file.exists(kin.file)){
+    kin.mat <- emma.kinship(t(ordered.full))
+    rownames(kin.mat) <- colnames(kin.mat) <- rownames(ordered.full)
+    saveRDS(kin.mat, kin.file)
+}else{
+kin.mat <- readRDS(kin.file)
+}
+pheatmap(kin.mat, annotation_row = shs)
+```
+
+After calculating the kinship matrix, I removed invariant SNPs and SNPs with missing data.
+
+```{r snp_filter}
+max.missing <- 0
+snp.var <- apply(ordered.snps, 2, var)
+no.var <- which(snp.var == 0)
+
+data.missing <- apply(ordered.snps, 2, function(x) length(which(is.na(x)))/length(x))
+too.sparse <- which(data.missing > max.missing)
+
+ordered.snps <- ordered.snps[,which(data.missing <= max.missing)]
+```
+
+We assigned each of the SNPs to a gene. This assignment 
+allowed us to determine whether each gene segregates with the Hhs phenotype 
+based on the SNP p values described in [cite]. A SNP that is significantly 
+associated with Hhs and assigned to gene X indicates that alleles of gene x
+segregate with Hhs. We used a simple heuristic assigning each SNP to the nearest
+gene  within 1Mb. SNPs farther than 1Mb from a gene were not assigned to a gene.
+We restricted the final list of genes to those genes with Entrez IDs.
+
+
+```{r snp_position, message = FALSE, warning = FALSE, error = FALSE}
+#Get genomic position information for these SNPs
+snp.pos.table <- here("results", "SNP_Associations", "snp.positions.txt")
+if(!file.exists(snp.pos.table)){
+    snp.table <- get.nearest.gene2(colnames(ordered.snps), "mouse", just.snp.position = TRUE)
+    write.table(snp.table, snp.pos.table, quote = FALSE, sep = "\t", row.names = FALSE)
+    }else{
+    snp.table <- read.table(snp.pos.table, sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+    }
+common.snps <- intersect(snp.table[,1], colnames(ordered.snps))
+common.table.locale <- match(common.snps, snp.table[,1])
+numeric.snp.locale <- match(common.snps, colnames(ordered.snps))
+ordered.snp.table <- snp.table[common.table.locale,]
+```
+
+I ran EMMA using two tests, a likelihood ratio test (emma.ML.LRT) and a t test (emma.REML.t). 
+
+
+```{r emma}
+lr.file <- here("results", "SNP_Associations", "EMMALR.RData")
+t.file <- here("results", "SNP_Associations", "EMMAt.RData")
+if(!file.exists(lr.file)){
+    lr.results <- emma.ML.LRT(t(shs), t(ordered.snps), kin.mat)
+    saveRDS(lr.results, lr.file)
+}else{
+lr.results <- readRDS(lr.file)
+}
+
+if(!file.exists(t.file)){
+    t.results <- emma.REML.t(t(shs), t(ordered.snps), kin.mat)
+    saveRDS(t.results, t.file)
+}else{
+    t.results <- readRDS(t.file)
+    }
+```
+
+The figure below shows the observed vs. expected quantiles for the p value 
+distributions resulting from the EMMA analyses using either likelihood ratio tests (LR)
+or t test (t). The results are identical for all intents and purposes.
+
+```{r post, fig.height = 3, fig.width = 9}
+par(mfrow = c(1,3))
+qqnorm(qnorm(lr.results$ps), main = "LR results")
+qqline(qnorm(lr.results$ps))
+
+qqnorm(qnorm(t.results$ps), main = "t results")
+qqline(qnorm(t.results$ps))
+
+plot(lr.results$ps, t.results$ps, xlab = "LR method", ylab = "t method")
+```
+
+Next we performed permutations to get a null distribution for the p values.
+In this permutation test, we shuffled the strain labels in the Hhs phenotype. 
+We used the Log Likelihood Ratio test available in EMMA. We performed 1000 
+permutations.
+
+
+```{r emma_perm}
+perm.file <- here("results", "SNP_Associations", "EMMA.Permutations.RData")
+
+if(!file.exists(perm.file)){
+    null.stats <- matrix(NA, nrow = length(lr.results$ps), ncol = emma.perm)
+    for(p in 1:emma.perm){
+        perm.shs <- shs[sample(1:nrow(shs)),]
+        perm.results <- emma.ML.LRT(t(perm.shs), t(ordered.snps), kin.mat)
+        null.stats[,p] <- perm.results$ps
+    }
+    saveRDS(null.stats, perm.file)
+}else{
+null.stats <- readRDS(perm.file)
+}
+```
+
+
+The figure below shows the null distribution of $-log_{10}(p)$. 
+
+```{r emp_p}
+hist(-log10(as.vector(null.stats)), main = "-log10 null p", xlab = "-log10 p",
+breaks = 100)
+```
+
+The minimum p value is `r signif(min(null.stats), 2)`.
+
+```{r plot.p, fig.height = 6, fig.width = 12}
+p <- lr.results$ps
+log.p <- -log10(p)
+plot(as.numeric(snp.table[,"chrom_start"]), log.p[numeric.snp.locale],
+xlab = "genomic position", ylab = "-log10(p)", pch = 16)
+full.snp.table <- cbind(snp.table,p[numeric.snp.locale])
+colnames(full.snp.table)[ncol(full.snp.table)] <- "p.value"
+write.table(full.snp.table, here("results", "SNP_Associations", "SNP.Results.Full.txt"),
+sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+We selected significant SNPs for further analysis based on a nominally significant empirical
+p value of 0.05.
+
+```{r set_sig}
+sig.val <- 0.05
+```
+
+```{r select_sig, fig.height = 6, fig.width = 12}
+final.p.table <- cbind(colnames(ordered.snps), p)
+sig.p.table <- final.p.table[which(p <= sig.val),]
+```
+
+```{r geneinfo, error = FALSE, message = FALSE, warning = FALSE}
+#get nearest gene information for genes near significant SNPs
+snp.info.file <- here("results", "SNP_Associations", "snp.gene.info.txt")
+if(!file.exists(snp.info.file)){
+    gene.info <- get.nearest.gene2(sig.p.table[,1], organism = "mouse", 
+    filename = snp.info.file)
+    write.table(gene.info, snp.info.file, sep = "\t", quote = FALSE, row.names = FALSE)
+    }else{
+    gene.info <- as.matrix(read.table(snp.info.file, sep = "\t", header = TRUE, 
+    stringsAsFactors = FALSE))
+    }
+
+snp.locale <- match(sig.p.table[,1], gene.info[,1])
+#cbind(sig.p.table[,1], gene.info[snp.locale,1])
+final.gene.table <- cbind(gene.info[snp.locale,c(1:4,9)], sig.p.table[,2])
+colnames(final.gene.table)[ncol(final.gene.table)] <- "p.value"
+write.table(final.gene.table, here("results", "SNP_Associations", "SNP.Gene.Associations.txt"), 
+quote = FALSE, sep = "\t", row.names = FALSE)
+```
+
+Interestingly, there are many SNPs that recieved the same minimum *p* value (Table below).
+This result illustrates the difficulty in prioritizing by *p* value alone. The number of
+genes is greatly reduced relative to the full locus, but there are still many candidate 
+genes for biological follow-up. By integrating the SNP association information with the 
+functional information, we can get a more fine-grained ranking of genes for follow-up.
+
+```{r specific.genes}
+cat("Table showing the genes near SNPs with the smallest p value:\n")
+min.p <- min(as.numeric(final.gene.table[,"p.value"]))
+min.locale <- which(as.numeric(final.gene.table[,"p.value"]) == min.p)
+kable(final.gene.table[min.locale,,drop=FALSE])
+#min.snps <- final.gene.table[min.locale,1]
+#pheatmap(cbind(shs, ordered.snps[,min.snps]))
+```
+
+```{r get_snps}
+snps <- read.table(here("results", "SNP_Associations", "SNP.Gene.Associations.txt"), header = TRUE, 
+stringsAsFactors = FALSE, fill = TRUE, sep = "\t")
+```
+
+Then we created a final table for all candidate genes in the region. For each gene we
+include the following information:
+* **gene name:** the external gene name of each candidate <br />
+* **gene position:** the mean value of the genomic positions of the gene start position 
+and end position<br />
+* **EMMA.p:** across all SNPs assigned to the gene, this value is the maximum negative 
+log p value from the EMMA analysis. <br />
+* **FP:** the maximum negative log false positive rate across all modules used to train 
+the SVM. <br />
+* **gene.final.score:** The final score calculated by summing EMMA.p and FP
+for each gene. This score combines the functional predictions about each gene from the SVM
+with genetic information about how well alleles of each gene segregate with the _Hhs_ phenotype.
+This is the score by which positional candidates are ranked. The higher the score, the more 
+likely it is that alleles of the candidate gene influence the _Hhs_ phenotype by this measure.<br />
+
+
+```{r merge_gene_info}
+all.gene.info <- build.final.gene.rankings(gene.info, snps, neg.log.fp, here("results"))
+#scale the functional and genetic scores to be comparable.
+all.gene.info[,"EMMA.p"] <- all.gene.info[,"EMMA.p"]/max(all.gene.info[,"EMMA.p"])
+all.gene.info[,"FP"] <- all.gene.info[,"FP"]/max(all.gene.info[,"FP"])
+all.gene.info[,"gene.final.score"] <- all.gene.info[,"EMMA.p"]+all.gene.info[,"FP"]
+#order by final gene score
+all.gene.info <- all.gene.info[order(all.gene.info[,"gene.final.score"], decreasing = TRUE),]
+```
+
+We plotted the -log EMMA p values against the -log SVM false positive rates to look at the
+relationship between SNP segregation, and predictions of gene function. Some genes are predicted
+to be highly functionally related to the selected gene sets, but have relatively low SNP p values,
+while others have very high SNP p values and relatively low predicted functional associations. The
+gray dashed line shows the false positive rate cutoff of `r max.fp`. Genes above this line are
+considered functionally associated with at least one of the gene modules. Genes in the upper
+right quadrant both segregate with _Hhs_ and are predicted to be highly functionally involved
+with at least one of the functional modules. Genes along the blue line are either strongly
+predicted to be functionally associated with one of the modules, or segregate strongly with
+_Hhs_, or both. These genes can all be considered to be good positional candidates.
+
+```{r snp_by_function, fig.width = 6, fig.height = 6, warning = FALSE, message = FALSE}
+plot.snp.by.function(all.gene.info, max.fp = max.fp)
+```
+
+We can see from this plot that genes tend to score highly on one axis or the other, but
+not both. However, all genes on this plot have nominally significant associations with 
+the Hhs phenotype, and all genes above the dashed gray line have high functional associations
+with at least one aspect of the trait.
+
+```{r top_ten_funcion, fig.width = 5, fig.height = 10}
+num.top.genes <- 20
+gene.order <- match(rownames(all.gene.info), rownames(neg.log.fp))
+top.mat <- sqrt(neg.log.fp[gene.order[1:num.top.genes],])
+pheatmap(top.mat, cluster_rows = FALSE, cluster_cols  = FALSE,
+display_numbers = matrix(ifelse(top.mat > min.logfp, "*", ""), nrow(top.mat)))
+```
+
+_Hrh1_ serves as a positive control of sorts. It is a known causal factor in the _Hhs_-related 
+trait _Bordatella pertussis_ histamine hypsersensitivity (_Bphs_)
+[@BphsHrh1].
+
+We can plot the SNP results against the final gene scores to see where each gene falls relative
+to the _Hhs_ locus.
+
+```{r final_plot, fig.width = 10, fig.height = 10}
+plot.final.results(all.gene.info, snps, genetic.regions, sig.p = 3.7e-6, max.fp = max.fp)
+```
+
+This plot helps identify genes that are highly ranked within each subregion of the _Hhs_ locus.
+For example, _Creb5_ and _Tril_ are ranked number `r which(rownames(top.mat) == "Creb5")` 
+and number `r which(rownames(top.mat) == "Tril")` respectively overall; however they are 
+the top ranked genes in the most distal _Hhs_ region.  _Creb5_ is predicted to be functionally 
+associated with _Anaphylaxis_, _Cardiac_, and _Type I hypersensitivity_ modules, while _Tril_ 
+is predicted to be associated with _GPCR_ and _Type I hypersensitivity_ modules.
+
+
+We can look at some of the segregation patterns of SNPs near the top-ranked genes.
+
+
+```{r seg_patterns}
+plot.gene.snps <- function(gene.name, geno, gene.info, pheno){
+	gene.locale <- which(gene.info[,"Nearest.Gene"] == gene.name)
+	gene.snps <- gene.info[gene.locale,"SNP"]
+	gene.geno <- geno[,gene.snps]
+    pheatmap(gene.geno, annotation_row = pheno, main = gene.name)
+}
+
+for(i in 1:5){
+    plot.gene.snps(rownames(all.gene.info)[i], numeric.snps, gene.info, shs)
+}
+
+##Conclusions
+
+
+##References
