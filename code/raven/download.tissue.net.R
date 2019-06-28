@@ -5,8 +5,7 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 
 	require(XML)
 	require(RCurl)
-		
-	cur.dir <- getwd()
+
 
 	if(length(organism) == 2){
 		organism <- "mouse"	
@@ -55,6 +54,5 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 	unlink(gsub(".gz", "", tissue.file))
 
 	invisible(tissue.net)
-	setwd(cur.dir)
 	}
 }
