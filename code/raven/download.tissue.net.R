@@ -33,9 +33,9 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 	}else{
 	
 	if(top.edges.only){
-		tissue.file <- file.path(gsub(" ", "_", tissue), "_top.gz", sep = "")
+		tissue.file <- paste0(gsub(" ", "_", tissue), "_top.gz", sep = "")
 		}else{
-		tissue.file <- file.path(gsub(" ", "_", tissue), ".gz", sep = "")	
+		tissue.file <- paste0(gsub(" ", "_", tissue), ".gz", sep = "")	
 		}
 
 	if(organism == "mouse"){
