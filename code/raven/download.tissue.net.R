@@ -43,7 +43,7 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 		base.url <- "https://s3-us-west-2.amazonaws.com/humanbase/networks/"
 		}
 		
-	destfile = file.path(project.dir, tissue.file)
+	dest.file = file.path(project.dir, tissue.file)
 	download.file(paste(base.url, tissue.file, sep = "/"), destfile)
 	
 	cat("Unzipping network file...\n")
