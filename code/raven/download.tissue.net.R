@@ -33,7 +33,7 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 	}else{
 	
 	if(top.edges.only){
-		tissue.file <- paste0(gsub(" ", "_", tissue), "_top.gz", sep = "")
+		tissue.file <- file.path(project.dir, paste0(gsub(" ", "_", tissue), "_top.gz", sep = ""))
 		}else{
 		tissue.file <- paste0(gsub(" ", "_", tissue), ".gz", sep = "")	
 		}
@@ -44,9 +44,8 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 		base.url <- "https://s3-us-west-2.amazonaws.com/humanbase/networks/"
 		}
 		
-	download.file(paste(base.url, tissue.file, sep = "/"), destfile = file.path(project.dir, tissue.file))
+	download.file(paste(base.url, tissue.file, sep = "/"), destfile = tissue.file)
 	
-	setwd(project.dir)	
 	cat("Unzipping network file...\n")
 	system(paste("gunzip", tissue.file))
 	cat("Reading in network file...\n")
