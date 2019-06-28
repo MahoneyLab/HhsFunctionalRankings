@@ -5,7 +5,7 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 
 	require(XML)
 	require(RCurl)
-
+	require(R.utils)
 
 	if(length(organism) == 2){
 		organism <- "mouse"	
