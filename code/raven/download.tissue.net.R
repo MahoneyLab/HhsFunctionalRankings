@@ -44,7 +44,7 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 		}
 		
 	dest.file = file.path(project.dir, tissue.file)
-	download.file(paste(base.url, tissue.file, sep = "/"), destfile)
+	download.file(paste(base.url, tissue.file, sep = "/"), dest.file)
 	
 	cat("Unzipping network file...\n")
 	system(paste("gunzip", dest.file))
