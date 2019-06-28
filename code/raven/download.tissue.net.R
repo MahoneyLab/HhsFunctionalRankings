@@ -47,7 +47,7 @@ download.tissue.net <- function(tissue = NULL, organism = c("mouse", "human"), t
 	download.file(paste(base.url, tissue.file, sep = "/"), dest.file)
 	
 	cat("Unzipping network file...\n")
-	system(paste("gunzip", dest.file))
+	gunzip(dest.file)
 	cat("Reading in network file...\n")
 	tissue.net <- read.table(gsub(".gz", "", dest.file))
 	cat("Saving R binary version of network file...\n")
