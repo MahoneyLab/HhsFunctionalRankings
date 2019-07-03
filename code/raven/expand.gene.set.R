@@ -9,7 +9,7 @@ expand.gene.set <- function(term.genes, edge.list, cluster.modules = FALSE, min.
 	
 	require(igraph)
 	
-	if(!file.exists(path)){system(paste("mkdir", path))}
+	if(!file.exists(path)){dir.create(path)}
 	
 	yeast.mat <- tissue.adj.mat(tissue.net = edge.list, gene.list = term.genes)
 	tp.mat <- get.tp(yeast.mat)
@@ -33,7 +33,7 @@ expand.gene.set <- function(term.genes, edge.list, cluster.modules = FALSE, min.
 		if(mod.size[m] < min.mod.size){next()}
 		
 		module.dir <- paste0(path, '/Module', m)
-		if(!file.exists(module.dir)){system(paste("mkdir", module.dir))}
+		if(!file.exists(module.dir)){dir.create(module.dir)}
 		
 		mod.locale <- which(modules == u_mods[m])
 		mod.genes <- V(tp.net)$name[mod.locale]

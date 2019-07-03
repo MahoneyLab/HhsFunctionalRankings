@@ -50,7 +50,7 @@ Load libraries used in this analysis.
 #load the libraries used in this project
 all.packages <- c("e1071", "RColorBrewer", "doParallel", "foreach",
 "gProfileR", "pheatmap", "igraph", "biomaRt", "knitr", "DescTools", 
-"here", "emma", "rPref", "evd")
+"here", "emma", "rPref", "evd", "rPref", "emma")
 for(i in 1:length(all.packages)){library(all.packages[i], character.only = TRUE)}
 ```
 

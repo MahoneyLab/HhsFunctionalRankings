@@ -26,7 +26,7 @@ n.cores = 4){
 	
 	#create a new directory for the project
 	project.dir <- file.path(path,  project.name)
-	if(!file.exists(project.dir)){system(paste("mkdir", project.dir))}
+	if(!file.exists(project.dir)){dir.create(project.dir)}
 	
 	if(!cluster.modules){max.cluster.size = NULL}
 
