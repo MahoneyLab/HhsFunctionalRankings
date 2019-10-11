@@ -50,7 +50,7 @@ Load libraries used in this analysis.
 #load the libraries used in this project
 all.packages <- c("e1071", "RColorBrewer", "doParallel", "foreach",
 "gProfileR", "pheatmap", "igraph", "biomaRt", "knitr", "DescTools", 
-"here", "emma", "rPref", "evd", "rPref", "emma")
+"here", "emma", "rPref", "evd")
 for(i in 1:length(all.packages)){library(all.packages[i], character.only = TRUE)}
 ```
 
@@ -112,7 +112,11 @@ Read in the data used in this study.<br >
 to the Hhs phenotype are unknown.
 
 ```{r read_fgn, eval = TRUE}
-fgn <- readRDS(here("data", "mouse_top.RData"))
+all.var <- ls()
+fgn.loaded <- as.logical(length(which(all.var == "fgn")))
+if(!fgn.loaded){
+    fgn <- readRDS(here("data", "mouse_top.RData"))
+    }
 ```
 
 ##Identify positional candidate genes
@@ -523,7 +527,7 @@ row.names = 1, sep = "\t", header = TRUE)
 shs <- shs/max(shs)
 ```
 
-For the genotype data, I converted "Dr. Anna run genotypes.xlsx" to the csv file 
+For the genotype data, I converted "Hhs_genotypes.xlsx" to the csv file 
 "EMMA_genotypes.csv." There was one column with no data. I removed this by hand.
 I then converted all the genotypes to numeric data. The minor allele at each position
 was designated 0 and the major allele was designated 1.
@@ -827,7 +831,7 @@ predicted to be functionally associated with one of the modules, or segregate st
 _Hhs_, or both. These genes can all be considered to be good positional candidates.
 
 ```{r snp_by_function, fig.width = 6, fig.height = 6, warning = FALSE, message = FALSE}
-plot.snp.by.function(all.gene.info, max.fp = max.fp)
+plot.snp.by.function(all.gene.info, max.fp = NULL)
 ```
 
 We can see from this plot that genes tend to score highly on one axis or the other, but
@@ -835,7 +839,7 @@ not both. However, all genes on this plot have nominally significant association
 the Hhs phenotype, and all genes above the dashed gray line have high functional associations
 with at least one aspect of the trait.
 
-```{r top_ten_funcion, fig.width = 5, fig.height = 10}
+```{r top_ten_funcion, fig.width = 5, fig.height = 7}
 num.top.genes <- 20
 gene.order <- match(rownames(all.gene.info), rownames(neg.log.fp))
 top.mat <- sqrt(neg.log.fp[gene.order[1:num.top.genes],])
@@ -851,7 +855,7 @@ We can plot the SNP results against the final gene scores to see where each gene
 to the _Hhs_ locus.
 
 ```{r final_plot, fig.width = 10, fig.height = 10}
-plot.final.results(all.gene.info, snps, genetic.regions, sig.p = 3.7e-6, max.fp = max.fp)
+plot.final.results(all.gene.info, snps, genetic.regions, sig.p = 3.7e-6, max.fp = NULL, name.cex = 1)
 ```
 
 This plot helps identify genes that are highly ranked within each subregion of the _Hhs_ locus.
