@@ -27,7 +27,7 @@ block2gene <- function(data.obj, organism = c("mouse", "human"), collapsed.net =
 	}
 	
 
-	atts <- c("external_gene_name", "entrezgene", "ensembl_gene_id", "chromosome_name", "start_position", "end_position")
+	atts <- c("external_gene_name", "entrezgene_id", "ensembl_gene_id", "chromosome_name", "start_position", "end_position")
 	fils <- "chromosomal_region"
 
 

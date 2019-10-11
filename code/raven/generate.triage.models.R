@@ -21,12 +21,12 @@
 
 generate.triage.models <- function(path = ".", project.name = "triage_project", 
 trait.genes, fgn, n.trials = 100, cluster.modules = TRUE, cluster.threshold = 300, 
-max.cluster.size = 500, min.cluster.size = 100, use.SVD = FALSE, verbose = TRUE, 
-n.cores = 4){
+max.cluster.size = 500, min.cluster.size = 100, merge.small.clusters = FALSE,
+use.SVD = FALSE, verbose = TRUE, n.cores = 4){
 	
 	#create a new directory for the project
 	project.dir <- file.path(path,  project.name)
-	if(!file.exists(project.dir)){dir.create(project.dir)}
+	if(!file.exists(project.dir)){system(paste("mkdir", project.dir))}
 	
 	if(!cluster.modules){max.cluster.size = NULL}
 
@@ -63,7 +63,10 @@ n.cores = 4){
 			if(verbose){cat("Clustering functional network.\n")}
 			net <- graph_from_adjacency_matrix(abs(gene.fgn[,1:nrow(gene.fgn)]), 
 			weighted = TRUE, mode = "undirected")
-			mods <- iter.cluster(net, max.mod.size = max.cluster.size)
+			mod.table <- iter.cluster2(net, max.mod.size = max.cluster.size, 
+			min.mod.size = min.cluster.size, plot.cluster.size = FALSE, 
+			merge.small.clusters = merge.small.clusters, sep = "-")
+			mods <- assign.mods(net, mod.table)
 			}
 		saveRDS(mods, module.file)
 		}

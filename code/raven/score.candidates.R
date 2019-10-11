@@ -1,7 +1,8 @@
 #This function classifies positional (or other) candidates
 #based on trained SVM models
 
-score.candidates <- function(results.dir = ".", candidate.genes, verbose = FALSE){
+score.candidates <- function(results.dir = ".", candidate.genes, verbose = FALSE, 
+clear.previous.results = FALSE){
 	
 	module.dir.info <- get.module.dir(results.dir, dir.table = TRUE)
 	module.dir <- module.dir.info$module.dir
@@ -16,6 +17,13 @@ score.candidates <- function(results.dir = ".", candidate.genes, verbose = FALSE
 		svm.jpg.file <- paste0(module.dir[i], "/Candidate.Gene.SVM.Scores.jpg")
 		fp.jpg.file <- paste0(module.dir[i], "/Candidate.Gene.FP.Rates.jpg")
 		
+		if(clear.previous.results){
+			unlink(svm.csv.file)
+			unlink(fp.csv.file)
+			unlink(svm.jpg.file)
+			unlink(fp.jpg.file)
+		}
+
 		if(file.exists(svm.csv.file)){next()}
 		
 		if(verbose){cat(dir.table[i,1], dir.table[i,2], "\n")}

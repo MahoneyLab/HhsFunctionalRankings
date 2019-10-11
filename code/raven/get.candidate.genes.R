@@ -16,7 +16,7 @@ get.candidate.genes <- function(vote.cutoff = 90, alt.cutoff = 1){
 		if(length(candidate.locale) == 0){
 			candidate.locale <- 1
 			}
-		gene.list[[i]] <- gene.table[candidate.locale, c("external_gene_name", "entrezgene","gene.vote")]
+		gene.list[[i]] <- gene.table[candidate.locale, c("external_gene_name", "entrezgene_id","gene.vote")]
 		}
 	return(gene.list)
 }

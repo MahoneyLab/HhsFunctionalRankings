@@ -1,5 +1,5 @@
 sort.by.then.by <-
-function(tableX, sort.cols = c(1,2), col.type = c("c", "n"), decreasing = FALSE, return.order = FALSE){
+function(tableX, sort.cols = c(1,2), col.type = c("c", "n"), decreasing = c(FALSE, FALSE), return.order = FALSE){
 	
 
 	
@@ -14,9 +14,9 @@ function(tableX, sort.cols = c(1,2), col.type = c("c", "n"), decreasing = FALSE,
 	if(length(sort.cols) == 1){
 		
 		if(col.type == "n"){
-			sorted.col <- sort.int(as.numeric(tableX[,sort.cols]), index.return = TRUE, decreasing = decreasing, na.last = TRUE, method = "radix")
+			sorted.col <- sort.int(as.numeric(tableX[,sort.cols]), index.return = TRUE, decreasing = decreasing[1], na.last = TRUE, method = "radix")
 			}else{
-				sorted.col <- sort.int(tableX[,sort.cols], index.return = TRUE, decreasing = decreasing, na.last = TRUE, method = "radix")
+				sorted.col <- sort.int(tableX[,sort.cols], index.return = TRUE, decreasing = decreasing[1], na.last = TRUE, method = "radix")
 				}
 		
 		new.table <- tableX[sorted.col$ix,]
@@ -27,9 +27,9 @@ function(tableX, sort.cols = c(1,2), col.type = c("c", "n"), decreasing = FALSE,
 			#start with the table ordered by the first sort column. We will change
 			#chunks of this as we go
 			if(col.type[1] == "n"){
-				new.order <- sort.int(as.numeric(tableX[,sort.cols[1]]), index.return = TRUE, na.last = TRUE, decreasing = decreasing, method = "radix")$ix	
+				new.order <- sort.int(as.numeric(tableX[,sort.cols[1]]), index.return = TRUE, na.last = TRUE, decreasing = decreasing[1], method = "radix")$ix	
 				}else{
-					new.order <- sort.int(tableX[,sort.cols[1]], index.return = TRUE, decreasing = decreasing, na.last = TRUE, method = "radix")$ix
+					new.order <- sort.int(tableX[,sort.cols[1]], index.return = TRUE, decreasing = decreasing[1], na.last = TRUE, method = "radix")$ix
 					}
 			sorted.table <- tableX[new.order, ]
 			
@@ -53,9 +53,9 @@ function(tableX, sort.cols = c(1,2), col.type = c("c", "n"), decreasing = FALSE,
 				el.locale <- which(sorted.table[,sort.cols[1]] == u_col_el[i])
 				}
 				if(col.type[2] == "n"){
-					subset.order <- sort.int(as.numeric(sorted.table[el.locale, sort.cols[2]]), index.return = TRUE, decreasing = decreasing, na.last = TRUE, method = "radix")$ix
+					subset.order <- sort.int(as.numeric(sorted.table[el.locale, sort.cols[2]]), index.return = TRUE, decreasing = decreasing[2], na.last = TRUE, method = "radix")$ix
 					}else{
-					subset.order <- sort.int(sorted.table[el.locale, sort.cols[2]], index.return = TRUE, decreasing = decreasing, na.last = TRUE, method = "radix")$ix
+					subset.order <- sort.int(sorted.table[el.locale, sort.cols[2]], index.return = TRUE, decreasing = decreasing[2], na.last = TRUE, method = "radix")$ix
 					}
 				new.order <- c(new.order, el.locale[subset.order])
 				}
@@ -68,10 +68,5 @@ function(tableX, sort.cols = c(1,2), col.type = c("c", "n"), decreasing = FALSE,
 			
 			return(sorted.table)
 		} #end case for if sort.cols has more than one element
-	
-	
-	
-	
-	
-	
+		
 }

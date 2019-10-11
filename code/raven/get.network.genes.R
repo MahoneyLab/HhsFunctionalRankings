@@ -18,7 +18,7 @@ get.network.genes <- function(Gij, Lij, cur.gene, mart){
 		}
 	
 	u_genes <- unique(c(gene.mat[,1], gene.mat[,2]))
-	gene.names <- getBM(c("entrezgene","external_gene_name"), "entrezgene", u_genes, mart)
+	gene.names <- getBM(c("entrezgene_id","external_gene_name"), "entrezgene_id", u_genes, mart)
 	
 	for(i in 1:nrow(gene.names)){
 		gene.locale <- which(gene.mat == gene.names[i,1])

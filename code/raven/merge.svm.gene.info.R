@@ -22,14 +22,16 @@ merge.svm.gene.info <- function(results.dir = ".", gene.info.table){
 		fp.rates <- read.csv(fp.csv.file, stringsAsFactors = FALSE)
 		mean.fp <- colMeans(fp.rates)
 
-		common.genes <- intersect(gene.info.table[,"entrezgene"], gene.ids)
-		gene.locale.table <- match(common.genes, gene.info.table[,"entrezgene"])
+		common.genes <- intersect(gene.info.table[,"entrezgene_id"], gene.ids)
+		gene.locale.table <- match(common.genes, gene.info.table[,"entrezgene_id"])
 		# head(cbind(gene.ids, gene.info.table[gene.locale.table,]))
 		gene.locale.svm <- match(common.genes, gene.ids)
 		# head(cbind(common.genes, gene.ids[gene.locale.svm]))
 		
-		final.table <- cbind(gene.info.table[gene.locale.table,], mean.svm[gene.locale.svm], mean.fp[gene.locale.svm])
-		colnames(final.table)[c(5,6)] <- c("Mean.SVM.Score", "Mean.FP.Rate")
+		final.table <- cbind(gene.info.table[gene.locale.table,], 
+		mean.svm[gene.locale.svm], mean.fp[gene.locale.svm])
+		ncol.final.table <- ncol(final.table)
+		colnames(final.table)[tail(1:ncol.final.table, 2)] <- c("Mean.SVM.Score", "Mean.FP.Rate")
 		
 		write.table(final.table, results.file, sep = ",", quote = FALSE, row.names = FALSE)
 		

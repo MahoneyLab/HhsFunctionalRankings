@@ -10,8 +10,8 @@ get.nearest.gene2 <- function(snp.names, organism = c("human", "mouse"), max.dis
 	organism <- organism[1]
 
 	if(organism[1] == "mouse"){		
-	# lib <- useMart(biomart="ensembl", dataset="mmusculus_gene_ensembl")
-		lib <- useMart("ENSEMBL_MART_ENSEMBL", dataset = "mmusculus_gene_ensembl", host = "apr2018.archive.ensembl.org")
+		lib <- useMart(biomart="ensembl", dataset="mmusculus_gene_ensembl")
+		#lib <- useMart("ENSEMBL_MART_ENSEMBL", dataset = "mmusculus_gene_ensembl", host = "apr2018.archive.ensembl.org")
 		snp.db = useMart(biomart="ENSEMBL_MART_SNP", dataset="mmusculus_snp", host = "apr2018.archive.ensembl.org")	
 	}else{
 	# lib <- useMart(biomart="ensembl", dataset="hsapiens_gene_ensembl")	
@@ -29,11 +29,11 @@ get.nearest.gene2 <- function(snp.names, organism = c("human", "mouse"), max.dis
 	all.chr.region <- apply(snp.table, 1, function(x) paste0(x[2], ":", as.numeric(x[3])-max.distance, ":", as.numeric(x[3])+max.distance))
 	
 	cat("Finding genes in regions near SNPs...\n")
-	region.genes <- lapply(all.chr.region, function(x) getBM(c("external_gene_name", "entrezgene","chromosome_name","start_position", "end_position"), "chromosomal_region", x, lib))
+	region.genes <- lapply(all.chr.region, function(x) getBM(c("external_gene_name", "entrezgene_id","chromosome_name","start_position", "end_position"), "chromosomal_region", x, lib))
 
 
 	if(restrict.to.entrez){	
-		region.genes <- lapply(region.genes, function(x) x[which(!is.na(x[,"entrezgene"])),])
+		region.genes <- lapply(region.genes, function(x) x[which(!is.na(x[,"entrezgene_id"])),])
 		}
 	
 	snp.gene.table <- matrix(NA, nrow = nrow(snp.table),  ncol = (ncol(snp.table)+6))

@@ -5,8 +5,8 @@ plotVenn <- function(Vlist, cat.names = NULL, lwd = 3, cex = 2, label.cex = 2){
 	require(VennDiagram)
 	all.cols <- c("#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0")
 
-
 	if(is.null(cat.names)){cat.names <- names(Vlist)}
+	if(is.null(cat.names)){cat.names <- paste0("Category", 1:length(Vlist))}
 
 	if(length(Vlist) == 2){
 		shared <- intersect(Vlist[[1]], Vlist[[2]])

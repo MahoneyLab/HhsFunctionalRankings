@@ -77,7 +77,7 @@ get.go.genes <- function(go.term, organism = c("mouse", "human", "yeast")){
 			lib <<- useMart("ENSEMBL_MART_ENSEMBL", dataset = "mmusculus_gene_ensembl", host = "may2017.archive.ensembl.org")
 			}
 
-		gene.table <- getBM(c("external_gene_name", "entrezgene"), "external_gene_name", all.genes.found, lib)
+		gene.table <- getBM(c("external_gene_name", "entrezgene_id"), "external_gene_name", all.genes.found, lib)
 		no.nas <- gene.table[which(!is.na(gene.table[,2])),]
 		
 		#figure out how to make a table that groups the GO terms by gene. 
@@ -136,7 +136,7 @@ get.go.genes <- function(go.term, organism = c("mouse", "human", "yeast")){
 		lib <<- useMart("ENSEMBL_MART_ENSEMBL", dataset = "hsapiens_gene_ensembl", host = "may2017.archive.ensembl.org")
 			}		
 		
-		gene.table <- getBM(c("external_gene_name", "entrezgene"), "external_gene_name", all.genes.found, lib)
+		gene.table <- getBM(c("external_gene_name", "entrezgene_id"), "external_gene_name", all.genes.found, lib)
 		not.na <- which(!is.na(gene.table[,2]))
 		gene.terms <- lapply(all.genes.found, function(x) unique(results[which(results[,"Gene.symbol"] == x),"Gene.goAnnotation.ontologyTerm.name"]))
 		gene.term.text <- unlist(lapply(gene.terms, function(x) paste(x, collapse = ";")))

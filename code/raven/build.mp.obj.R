@@ -11,7 +11,7 @@ build.mp.obj <- function(phenotype.terms, organism = c("mouse", "human", "yeast"
 	
 	for(ph in 1:length(phenotype.terms)){
 		cat("\n", ph, phenotype.terms[ph], "\n")
-		mp.genes <- get.mp.genes(phenotype.terms[ph], organism, "entrezgene")
+		mp.genes <- get.mp.genes(phenotype.terms[ph], organism, "entrezgene_id")
 		all.mp.obj[[ph]] <- mp.genes
 		}
 

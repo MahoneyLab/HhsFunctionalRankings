@@ -36,14 +36,14 @@ condense.results = FALSE){
     for(i in 1:length(mod.dir1[[1]])){
         mod.mem <- read.csv(file.path(mod.dir1[[1]][i], "Module.Gene.Info.csv"), 
         stringsAsFactors = FALSE)
-        mod.entrez1[[i]] <- mod.mem[,"entrezgene"]
+        mod.entrez1[[i]] <- mod.mem[,"entrezgene_id"]
     }
 
     mod.entrez2 <- vector(mode = "list", length = length(mod.dir2[[1]]))
     for(i in 1:length(mod.dir2[[1]])){
         mod.mem <- read.csv(file.path(mod.dir2[[1]][i], "Module.Gene.Info.csv"), 
         stringsAsFactors = FALSE)
-        mod.entrez2[[i]] <- mod.mem[,"entrezgene"]
+        mod.entrez2[[i]] <- mod.mem[,"entrezgene_id"]
     }
 
     #if a conversion table is supplied, use it to translate module2 IDs to module1 IDs

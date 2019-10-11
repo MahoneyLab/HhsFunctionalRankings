@@ -16,7 +16,7 @@ qp.max.net <- function(qp.result, locus.genes, lib){
 		}
 
 	cat("Looking up gene names...\n")
-	gene.names <- getBM(c("external_gene_name", "entrezgene"), "entrezgene", max.net[,1], lib)
+	gene.names <- getBM(c("external_gene_name", "entrezgene_id"), "entrezgene_id", max.net[,1], lib)
 	
 	gene.name.locale <- match(max.net[,1], gene.names[,2])
 	# cbind(max.net[,1], gene.names[gene.name.locale,2])

@@ -37,8 +37,8 @@ gene.subnetwork <- function(entrezid, tissue.adj.mat, num.steps = 1, return.gene
 		mart = useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
 		}
 	
-		row.genes <- getBM(c("entrezgene", "external_gene_name"), "entrezgene", rownames(sub.adj), mart = mart)
-		col.genes <- getBM(c("entrezgene", "external_gene_name"), "entrezgene", colnames(sub.adj), mart = mart)
+		row.genes <- getBM(c("entrezgene_id", "external_gene_name"), "entrezgene_id", rownames(sub.adj), mart = mart)
+		col.genes <- getBM(c("entrezgene_id", "external_gene_name"), "entrezgene_id", colnames(sub.adj), mart = mart)
 		
 		gene.order <- match(rownames(sub.adj), row.genes[,1])
 		rownames(sub.adj) <- row.genes[gene.order,2]

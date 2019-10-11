@@ -12,7 +12,7 @@ writeModuleGenes <- function(results.dir, mart){
 		
 		gene.id <- rownames(decomp.mat)
 		
-		gene.info <- getBM(c("external_gene_name", "entrezgene", "chromosome_name", "start_position", "end_position"), "entrezgene", values = as.numeric(gene.id), mart = mart)
+		gene.info <- getBM(c("external_gene_name", "entrezgene_id", "chromosome_name", "start_position", "end_position"), "entrezgene_id", values = as.numeric(gene.id), mart = mart)
 		write.table(gene.info, results.file, quote = FALSE, sep = ",", row.name = FALSE)
 		}
 	

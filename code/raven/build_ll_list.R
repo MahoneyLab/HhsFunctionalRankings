@@ -6,7 +6,7 @@
 #that overlap between the cape network and the SVM.
 
 
-build_ll_list <- function(qtl.table, gene.list, filter.type = c("entrezgene", "ensembl_gene_id"), mart){
+build_ll_list <- function(qtl.table, gene.list, filter.type = c("entrezgene_id", "ensembl_gene_id"), mart){
 	
 	require(biomaRt)
 	filter.type <- filter.type[1]
@@ -18,7 +18,7 @@ build_ll_list <- function(qtl.table, gene.list, filter.type = c("entrezgene", "e
 	qtl.end <- unlist(lapply(split.qtl, function(x) as.numeric(x[3])))
 		
 	#make a gene information table from the overlap genes
-	atts <- c("entrezgene", "ensembl_gene_id", "external_gene_name", "chromosome_name", "start_position", "end_position")
+	atts <- c("entrezgene_id", "ensembl_gene_id", "external_gene_name", "chromosome_name", "start_position", "end_position")
 	overlap.gene.table <- getBM(atts, filter.type, values = gene.list, mart = mart)
 	
 	genes.by.block <- vector(mode = "list", length = length(u_qtl))

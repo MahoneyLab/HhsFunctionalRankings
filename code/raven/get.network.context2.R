@@ -70,7 +70,7 @@ get.network.context2 <- function(net.genes, tissue.net, mart, min.edge.weight = 
 	v.names <- V(trimmed.net)$name
 
 	
-	gene.names <- getBM(c("external_gene_name", "entrezgene"), "entrezgene", v.names, mart)
+	gene.names <- getBM(c("external_gene_name", "entrezgene_id"), "entrezgene_id", v.names, mart)
 
 	name.locale <- match(V(trimmed.net)$name, as.character(gene.names[,2]))
 	node.names <- gene.names[name.locale,1]

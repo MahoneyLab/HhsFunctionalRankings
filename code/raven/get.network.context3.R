@@ -114,7 +114,7 @@ get.network.context3 <- function(gene.edges, tissue.net, mart, start.thresh = 0.
 	
 	v.names <- V(net)$name
 
-	gene.names <- getBM(c("external_gene_name", "entrezgene"), "entrezgene", v.names, mart)
+	gene.names <- getBM(c("external_gene_name", "entrezgene_id"), "entrezgene_id", v.names, mart)
 
 	name.locale <- match(V(net)$name, as.character(gene.names[,2]))
 	node.names <- gene.names[name.locale,1]

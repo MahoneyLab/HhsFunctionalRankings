@@ -7,7 +7,7 @@ remove.file <- function(results.dir, pattern){
 		to.remove <- list.files(path = module.dir.info[i], pattern = pattern, full.names = TRUE)
 		if(length(to.remove) > 0){
 			for(j in 1:length(to.remove)){
-				unlink(to.remove[j])
+				system(paste("rm", to.remove[j]))
 				}
 			}
 		}

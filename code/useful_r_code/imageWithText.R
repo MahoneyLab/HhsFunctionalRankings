@@ -4,7 +4,15 @@
 # mat <- matrix(rnorm(25), 5, 5)
 #xlab = ""; ylab = ""; main = NULL; main.shift = 0.12; col.names = NULL; row.names = NULL; row.text.adj = 1; row.text.shift = 0; row.text.rotation = 0; col.text.rotation = 90; col.text.adj = 1; col.text.shift = 0; show.text = TRUE; cex = 0.5; col.text.cex = 1; row.text.cex = 1; main.cex = 1; split.at.vals = FALSE; split.points = 0; col.scale = c("green", "purple", "orange", "blue", "brown", "gray"); light.dark = "f"; class.mat = NULL; grad.dir = c("high", "low", "middle", "ends"); color.fun = c("linear", "exponential"); exp.steepness = 1; global.color.scale = FALSE; global.min = NULL; global.max = NULL; sig.digs = 3
 #color.spread = 50
-imageWithText <- function(mat, xlab = "", ylab = "", main = NULL, main.shift = 0.12, col.names = NULL, row.names = NULL, row.text.adj = 1, row.text.shift = 0, row.text.rotation = 0, col.text.rotation = 90, col.text.adj = 1, col.text.shift = 0, show.text = TRUE, cex = 0.5, col.text.cex = 1, row.text.cex = 1, main.cex = 1, split.at.vals = FALSE, split.points = 0, col.scale = "gray", color.spread = 50, light.dark = "f", class.mat = NULL, grad.dir = c("high", "low", "middle", "ends"), color.fun = c("linear", "exponential"), exp.steepness = 1, global.color.scale = FALSE, global.min = NULL, global.max = NULL, sig.digs = 3, use.pheatmap.colors = FALSE, na.col = "lightgray", gridlines = FALSE){
+imageWithText <- function(mat, xlab = "", ylab = "", main = NULL, main.shift = 0.12, 
+col.names = NULL, row.names = NULL, row.text.adj = 1, row.text.shift = 0, 
+row.text.rotation = 0, col.text.rotation = 90, col.text.adj = 1, 
+col.text.shift = 0, show.text = TRUE, cex = 0.5, col.text.cex = 1, 
+row.text.cex = 1, main.cex = 1, split.at.vals = FALSE, split.points = 0, 
+col.scale = "gray", color.spread = 50, light.dark = "f", class.mat = NULL, 
+grad.dir = c("high", "low", "middle", "ends"), color.fun = c("linear", "exponential"), 
+exp.steepness = 1, global.color.scale = FALSE, global.min = NULL, global.max = NULL, 
+sig.digs = 3, use.pheatmap.colors = FALSE, na.col = "lightgray", gridlines = FALSE){
 
 		require(grid)
 		

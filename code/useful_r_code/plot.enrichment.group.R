@@ -8,12 +8,20 @@
 
 plot.enrichment.group <- function(enrichment.list, n.terms = 10, max.char = 40, 
 cluster_cols = TRUE, cluster_rows = TRUE, transformation = NULL, plot.results = TRUE,
-plot.label = NULL, sort.by = c("p.value", "default")){
+plot.label = NULL, sort.by = c("p.value", "default"), max.term.size = NULL){
+
 	
 	if(length(enrichment.list) == 1){
 		term.mat <- plot.enrichment.vis(enrichment.list[[1]], num.terms = n.terms, order.by = sort.by, 
-		plot.label = plot.label)
+		plot.label = plot.label, max.term.size = max.term.size)
 		}else{
+
+		if(!is.null(max.term.size)){
+			for(i in 1:length(enrichment.list)){
+				small.terms <- which(enrichment.list[[i]][,"term.size"] <= max.term.size)
+				enrichment.list[[i]] <- enrichment.list[[i]][small.terms,,drop=FALSE]
+			}
+		}
 
 		sort.by <- sort.by[1]
 

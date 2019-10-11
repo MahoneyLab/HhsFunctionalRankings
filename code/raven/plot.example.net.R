@@ -3,7 +3,7 @@ plot.example.net <- function(Lij, gene.ids, mart, plot.label = NULL, mark.neighb
 	require(igraph)
 
 	if(!is.null(gene.ids)){
-		gene.names <- getBM(c("entrezgene", "external_gene_name"), "entrezgene", gene.ids, mart)
+		gene.names <- getBM(c("entrezgene_id", "external_gene_name"), "entrezgene_id", gene.ids, mart)
 		names.by.locus <- gene.ids
 		for(i in 1:length(names.by.locus)){
 			gene.locale <- which(gene.names[,1] == gene.ids[i])

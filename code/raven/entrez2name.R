@@ -5,7 +5,7 @@
 entrez2name <- function(entrez.mat, mart){
 	
 	u_ids <- unique(as.vector(entrez.mat[which(!is.na(entrez.mat))]))
-	id.info <- getBM(c("entrezgene", "external_gene_name"), "entrezgene", u_ids, mart)
+	id.info <- getBM(c("entrezgene_id", "external_gene_name"), "entrezgene_id", u_ids, mart)
 	final.mat <- entrez.mat
 	
 	for(i in 1:length(u_ids)){

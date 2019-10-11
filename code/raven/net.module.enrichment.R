@@ -10,7 +10,7 @@ net.module.enrichment <- function(gene.fgn, mods, path = "."){
 			mod.locale <- which(mods == u_mods[i])
 			mod.genes <- colnames(gene.fgn)[mod.locale]
 			cat("Module ", i, ": ", length(mod.genes), " Genes\n", sep = "")
-			gene.locale <- match(as.numeric(mod.genes), as.numeric(gene.info[,"entrezgene"]))
+			gene.locale <- match(as.numeric(mod.genes), as.numeric(gene.info[,"entrezgene_id"]))
 			enrichment <- gprofiler(gene.info[gene.locale,1], "mmusculus", max_p_value = 0.05)
 			all.enrich[[i]] <- enrichment
 			}
@@ -22,7 +22,7 @@ net.module.enrichment <- function(gene.fgn, mods, path = "."){
 	for(i in 1:length(all.enrich)){
 		mod.locale <- which(mods == u_mods[i])
 		mod.genes <- colnames(annotated.pos.mat)[mod.locale]
-		gene.locale <- match(as.numeric(mod.genes), as.numeric(gene.info[,"entrezgene"]))
+		gene.locale <- match(as.numeric(mod.genes), as.numeric(gene.info[,"entrezgene_id"]))
 		plot.enrichment(all.enrich[[i]], 30, plot.label = paste("Module", i, ":", length(mod.genes), "Genes\nDefault Order"), order.by = "gprofiler")
 		plot.enrichment(all.enrich[[i]], 30, plot.label = paste("Module", i, ":", length(mod.genes), "Genes\nOrdered by p value"), order.by = "p.value")
 		}

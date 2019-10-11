@@ -6,7 +6,7 @@
 plot.enrichment.vis <- function(enrichment, num.terms = 10, text.size = 1, 
 order.by = c("gprofiler", "p.value", "overlap.size", "term.size"), 
 decreasing = FALSE, plot.label = "Enrichment", highlight.terms = NULL, 
-highlight.col = "#1f78b4", mar = c(5,20,4,4)){
+highlight.col = "#1f78b4", mar = c(5,20,4,4), max.term.size = NULL){
 
 	if(is.null(enrichment) || nrow(enrichment) == 0){
 		plot.new()
@@ -18,6 +18,11 @@ highlight.col = "#1f78b4", mar = c(5,20,4,4)){
 		
 	order.by <- order.by[1]
 	
+	if(!is.null(max.term.size)){
+		small.terms <- which(enrichment[,"term.size"] <= max.term.size)
+		enrichment <- enrichment[small.terms,,drop=FALSE]
+	}
+
 	if(order.by != "gprofiler"){
 		enrichment <- enrichment[order(enrichment[,order.by], decreasing = decreasing),]
 		}	

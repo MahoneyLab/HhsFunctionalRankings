@@ -30,7 +30,7 @@ gene.near.snp <- function(snp.name, mart, snp.db, upstream.buffer = 5000, downst
 
 	chr.region <- paste0(snp.chr, ":", snp.pos-upstream.buffer, ":", snp.pos+downstream.buffer)	
 		
-	att = c('entrezgene','external_gene_name', 'chromosome_name','start_position','end_position', 'description', 'phenotype_description')
+	att = c('entrezgene_id','external_gene_name', 'chromosome_name','start_position','end_position', 'description', 'phenotype_description')
 
 
 	genes <- getBM(att, filters = "chromosomal_region", values = chr.region, mart = mart)

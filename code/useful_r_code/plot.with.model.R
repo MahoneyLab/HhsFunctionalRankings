@@ -1,7 +1,8 @@
 #This function takes an x and y and plots them with a fitted linear model
 
 
-plot.with.model <- function(x, y, xlim = NULL, ylim = NULL, col = "black", pch = 16, main = "", xlab = "X", ylab = "Y", report = c("lm", "cor.test")){
+plot.with.model <- function(x, y, xlim = NULL, ylim = NULL, col = "black", 
+pch = 16, main = "", xlab = "X", ylab = "Y", report = c("lm", "cor.test"), plot.results = TRUE){
 	
 	report <- report[1]
 	
@@ -19,10 +20,12 @@ plot.with.model <- function(x, y, xlim = NULL, ylim = NULL, col = "black", pch =
 		rlab <- "r"
 		}
 
+	if(plot.results){
 	new.title <- paste0(main, "\n", rlab, " = ", r2, ", p = ", signif(p, 2))
 	plot(x,y, xlim = xlim, ylim = ylim, col = col, pch = pch, main = new.title, xlab = xlab, ylab = ylab)
 	abline(model)
+	}
 	
-	
+	invisible(c("r" = r2, "p" = p))
 	
 }

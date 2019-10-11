@@ -60,7 +60,7 @@ get.mp.genes <- function(mp.term, organism = c("mouse", "human", "yeast"), verbo
 		gene.names = gene.names[setdiff(1:length(gene.names), allele.locale)]
 		
 		if(length(gene.names) == 0){return("none")}
-		gene.table <- getBM(c("external_gene_name", "entrezgene"), "external_gene_name", gene.names, lib)
+		gene.table <- getBM(c("external_gene_name", "entrezgene_id"), "external_gene_name", gene.names, lib)
 		no.nas <- gene.table[which(!is.na(gene.table[,2])),]
 		gene.mp <- lapply(no.nas[,1], function(x) results[which(results[,"OntologyAnnotation.subject.symbol"] == x),"OntologyAnnotation.ontologyTerm.name"])
 		MP.term <- unlist(lapply(gene.mp, function(x) paste(unique(x), collapse = ";")))
@@ -69,7 +69,7 @@ get.mp.genes <- function(mp.term, organism = c("mouse", "human", "yeast"), verbo
 		}
 		
 	if(organism == "human"){
-		gene.table <- getBM(c("external_gene_name", "entrezgene"), "external_gene_name", results[,"Gene.homologues.homologue.symbol"], lib)
+		gene.table <- getBM(c("external_gene_name", "entrezgene_id"), "external_gene_name", results[,"Gene.homologues.homologue.symbol"], lib)
 		not.na <- which(!is.na(gene.table[,2]))
 		final.result <- list("terms" = unique(results[,"Gene.alleles.genotypes.phenotypeTerms.name"]), "gene.names" = unique(gene.table[not.na,1]), "gene.id" = unique(gene.table[not.na,2]))
 		}

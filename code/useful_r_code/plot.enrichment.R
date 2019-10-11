@@ -3,7 +3,10 @@
 #the "gprofiler" option of order.by uses the default ordering from
 #gprofiler
 
-plot.enrichment <- function(enrichment, num.terms = 10, text.size = 1, order.by = c("gprofiler", "p.value", "overlap.size", "term.size"), decreasing = FALSE, plot.label = "Enrichment"){
+plot.enrichment <- function(enrichment, num.terms = 10, text.size = 1, 
+order.by = c("gprofiler", "p.value", "overlap.size", "term.size"), 
+decreasing = FALSE, plot.label = "Enrichment", max.term.size = NULL){
+
 
 	if(is.null(enrichment) || nrow(enrichment) == 0){
 		plot.new()
@@ -13,6 +16,11 @@ plot.enrichment <- function(enrichment, num.terms = 10, text.size = 1, order.by 
 		return()
 		}
 		
+	if(!is.null(max.term.size)){
+		small.terms <- which(enrichment[,"term.size"] <= max.term.size)
+		enrichment <- enrichment[small.terms,,drop=FALSE]
+	}
+
 	order.by <- order.by[1]
 	
 	if(order.by != "gprofiler"){
