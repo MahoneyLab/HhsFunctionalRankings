@@ -20,7 +20,7 @@ plot.snp.by.function <- function(all.gene.info, pareto.col = "#9ecae1", max.fp =
 	text(emma, fp, labels = rownames(all.gene.info), cex = 0.7)
 	par(xpd = FALSE)
 	axis(1);axis(2)
-	mtext("-log EMMA p value", side = 1, line = 2)	
-	mtext("-log SVM FP rate", side = 2, line = 2)
+	mtext("-log EMMA p value (scaled)", side = 1, line = 2)	
+	mtext("-log SVM FP rate (scaled)", side = 2, line = 2)
 				
 }

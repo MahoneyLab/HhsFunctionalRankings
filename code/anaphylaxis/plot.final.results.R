@@ -1,4 +1,5 @@
-plot.final.results <- function(all.gene.info, snps, genetic.regions, sig.p = 0.05, max.fp = 0.2, value = "gene.final.score", label = "Final Gene Score"){
+plot.final.results <- function(all.gene.info, snps, genetic.regions, sig.p = 0.05, 
+max.fp = 0.2, value = "gene.final.score", label = "Final Gene Score", name.cex = 0.7){
 	
 	library(RColorBrewer)
 	region.cols <- brewer.pal(4, "Accent")
@@ -20,6 +21,7 @@ plot.final.results <- function(all.gene.info, snps, genetic.regions, sig.p = 0.0
 	mtext("-log p value", side = 2, line = 2.5)
 	abline(h = -log10(sig.p))
 	axis(2)
+	#axis(1)
 		
 		
 	par(mar = c(2, 4, 0,2))
@@ -30,8 +32,9 @@ plot.final.results <- function(all.gene.info, snps, genetic.regions, sig.p = 0.0
 	for(i in 1:nrow(genetic.regions)){
 		draw.rectangle(genetic.regions[i,1], genetic.regions[i,2], y.lim[1], y.lim[2]*1.05, border.col = NA, fill = region.cols[i])
 		}		
-	text(x = as.numeric(all.gene.info[,"gene.position"]), y = as.numeric(all.gene.info[,value]), labels = rownames(all.gene.info), cex = 0.7)
+	text(x = as.numeric(all.gene.info[,"gene.position"]), y = as.numeric(all.gene.info[,value]), labels = rownames(all.gene.info), cex = name.cex)
 	axis(2)
+	axis(1)
 	mtext(label, side = 2, line = 2.5)	
 	if(!is.null(max.fp)){
 		abline(h = log10(max.fp)*-1)	
